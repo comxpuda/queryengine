@@ -3,6 +3,7 @@ package com.comxpuda.datatypes
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.*
 import org.apache.arrow.vector.types.pojo.ArrowType
+import java.text.SimpleDateFormat
 
 object FieldVectorFactory {
 
@@ -56,6 +57,7 @@ class ArrowFieldVector(val field: FieldVector) : ColumnVector {
             is BigIntVector -> field.get(i)
             is Float4Vector -> field.get(i)
             is Float8Vector -> field.get(i)
+            is TimeStampNanoVector -> SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(field.get(i))
             is VarCharVector -> {
                 val bytes = field.get(i)
                 if (bytes == null) {

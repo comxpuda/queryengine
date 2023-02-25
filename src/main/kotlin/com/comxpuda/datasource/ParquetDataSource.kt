@@ -1,5 +1,6 @@
 package com.comxpuda.datasource
 
+import com.comxpuda.datasource.ParquetTimestampUtils.getTimestampMillis
 import com.comxpuda.datatypes.ArrowFieldVector
 import com.comxpuda.datatypes.RecordBatch
 import com.comxpuda.datatypes.Schema
@@ -8,18 +9,14 @@ import org.apache.arrow.vector.*
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.arrow.schema.SchemaConverter
-import org.apache.parquet.example.data.simple.NanoTime
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.hadoop.util.HadoopInputFile
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.text.SimpleDateFormat
 import java.util.logging.Logger
 
 class ParquetDataSource(private val filename: String) : DataSource {
     override fun schema(): Schema {
         return ParquetScan(filename, listOf()).use {
-            val arrowSchema = SchemaConverter().fromParquet(it.schema).arrowSchema
+            val arrowSchema = SchemaConverter(true).fromParquet(it.schema).arrowSchema
             com.comxpuda.datatypes.SchemaConverter.fromArrow(arrowSchema)
         }
     }
@@ -53,7 +50,7 @@ class ParquetIterator(private val reader: ParquetFileReader, private val project
 
     val schema = reader.footer.fileMetaData.schema
 
-    val arrowSchema = SchemaConverter().fromParquet(schema).arrowSchema
+    val arrowSchema = SchemaConverter(true).fromParquet(schema).arrowSchema
 
     val projectedSchema =
         org.apache.arrow.vector.types.pojo.Schema(projectedColumns.map { name -> arrowSchema.fields.find { it.name == name } })
@@ -91,22 +88,15 @@ class ParquetIterator(private val reader: ParquetFileReader, private val project
                             row.value.getBoolean(field.value.name, 0).let { if (it) 0x01 else 0x00 })
                     }
 
+                is TimeStampNanoVector ->
+                    rows.withIndex().forEach { row ->
+                        val int96Buf = row.value.getInt96(field.value.name, 0)
+                        vector.setSafe(row.index, getTimestampMillis(int96Buf))
+                    }
+
                 is VarBinaryVector ->
                     rows.withIndex().forEach { row ->
-                        try {
-                            vector.setSafe(row.index, row.value.getString(field.value.name, 0).toByteArray())
-                        } catch (e: ClassCastException) {
-                            // fixme how to fix timestamp handle
-                            val timestampBytes = row.value.getInt96(field.value.name, 0).bytes
-                            val buf: ByteBuffer = ByteBuffer.wrap(timestampBytes)
-                            buf.order(ByteOrder.LITTLE_ENDIAN)
-
-                            val date =
-                                SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(
-                                    (NanoTime(buf.int, buf.long).timeOfDayNanos)
-                                )
-                            vector.setSafe(row.index, date.toByteArray())
-                        }
+                        vector.setSafe(row.index, row.value.getBinary(field.value.name, 0).bytes)
                     }
 
                 is VarCharVector ->
