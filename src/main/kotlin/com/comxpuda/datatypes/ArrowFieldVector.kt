@@ -65,6 +65,15 @@ class ArrowFieldVector(val field: FieldVector) : ColumnVector {
                 }
             }
 
+            is VarBinaryVector -> {
+                val bytes = field.get(i)
+                if (bytes == null) {
+                    null
+                } else {
+                    String(bytes)
+                }
+            }
+
             else -> throw IllegalStateException()
         }
     }
