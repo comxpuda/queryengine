@@ -31,9 +31,9 @@ class Scan(
 
     override fun toString(): String {
         return if (projection.isEmpty()) {
-            "Scan $path; projection=None"
+            "Scan: $path; projection=None"
         } else {
-            "Scan $path; projection=$projection"
+            "Scan: $path; projection=$projection"
         }
     }
 }
