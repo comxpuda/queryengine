@@ -20,7 +20,6 @@ class Column(val name: String) : LogicalExpr {
 /** Convenience method to create a Column reference */
 fun col(name: String) = Column(name)
 
-
 class ColumnIndex(val index: Int) : LogicalExpr {
     override fun toFiled(input: LogicalPlan): Field {
         return input.schema().fields[index]
@@ -293,6 +292,12 @@ class Count(input: LogicalExpr) : AggregateExpr("COUNT", input) {
         return "COUNT($expr)"
     }
 }
+
+/** Convenience method to create a Column reference */
+fun max(expr: LogicalExpr) = Max(expr)
+fun min(expr: LogicalExpr) = Min(expr)
+fun sum(expr: LogicalExpr) = Sum(expr)
+fun avg(expr: LogicalExpr) = Avg(expr)
 
 /** Logical expression representing the COUNT DISTINCT aggregate expression. */
 class CountDistinct(input: LogicalExpr) : AggregateExpr("COUNT DISTINCT", input) {

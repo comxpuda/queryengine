@@ -24,6 +24,12 @@ class LiteralLongExpression(val value: Long) : Expression {
 
 }
 
+class LiteralDoubleExpression(val value: Double) : Expression {
+    override fun evaluate(input: RecordBatch): ColumnVector {
+        return LiteralValueVector(ArrowTypes.DoubleType, value, input.rowCount())
+    }
+}
+
 class LiteralStringExpression(val value: String) : Expression {
     override fun evaluate(input: RecordBatch): ColumnVector {
         return LiteralValueVector(ArrowTypes.StringType, value.toByteArray(), input.rowCount())
@@ -264,7 +270,7 @@ abstract class MathExpression(l: Expression, r: Expression) : BinaryExpression(l
     abstract fun evaluate(l: Any?, r: Any?, arrowType: ArrowType): Any?
 }
 
-class Add(l: Expression, r: Expression) : MathExpression(l, r) {
+class AddExpression(l: Expression, r: Expression) : MathExpression(l, r) {
     override fun evaluate(l: Any?, r: Any?, arrowType: ArrowType): Any? {
         return when (arrowType) {
             ArrowTypes.Int8Type -> (l as Byte) + (r as Byte)
