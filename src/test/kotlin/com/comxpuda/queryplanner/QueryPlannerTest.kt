@@ -8,6 +8,7 @@ import com.comxpuda.logicalplan.DataFrameImpl
 import com.comxpuda.logicalplan.Scan
 import com.comxpuda.logicalplan.col
 import com.comxpuda.logicalplan.max
+import com.comxpuda.optimizer.Optimizer
 import org.junit.Test
 import org.junit.jupiter.api.TestInstance
 import kotlin.test.assertEquals
@@ -36,14 +37,14 @@ class QueryPlannerTest {
             plan.pretty()
         )
 
-//        val optimizedPlan = Optimizer().optimize(plan)
-//        assertEquals(
-//            "Aggregate: groupExpr=[#passenger_count], aggregateExpr=[MAX(#max_fare)]\n" +
-//                    "\tScan: ; projection=[max_fare, passenger_count]\n",
-//            optimizedPlan.pretty()
-//        )
+        val optimizedPlan = Optimizer().optimize(plan)
+        assertEquals(
+            "Aggregate: groupExpr=[#passenger_count], aggregateExpr=[MAX(#max_fare)]\n" +
+                    "\tScan: ; projection=[max_fare, passenger_count]\n",
+            optimizedPlan.pretty()
+        )
 
-        val physicalPlan = QueryPlanner().createPhysicalPlan(plan)
+        val physicalPlan = QueryPlanner().createPhysicalPlan(optimizedPlan)
         assertEquals(
             "HashAggregateExec: groupExpr=[#1], aggrExpr=[MAX(#0)]\n" +
                     "\tScanExec: schema=Schema(fields=[Field(name=max_fare, dataType=FloatingPoint(DOUBLE)), Field(name=passenger_count, dataType=Int(32, false))]), projection=[max_fare, passenger_count]\n",
