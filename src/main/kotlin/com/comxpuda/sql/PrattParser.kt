@@ -11,11 +11,11 @@ interface PrattParser {
         return expr
     }
 
-    /** Get the precedence of the next token */
-    fun nextPrecedence(): Int
-
     /** Parse the next prefix expression */
     fun parsePrefix(): SqlExpr?
+
+    /** Get the precedence of the next token */
+    fun nextPrecedence(): Int
 
     /** Parse the next infix expression */
     fun parseInfix(left: SqlExpr, precedence: Int): SqlExpr
