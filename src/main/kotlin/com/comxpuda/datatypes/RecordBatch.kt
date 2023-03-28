@@ -1,6 +1,5 @@
 package com.comxpuda.datatypes
 
-// todo i don't know the usage of this class yet
 class RecordBatch(val schema: Schema, val fields: List<ColumnVector>) {
 
     fun rowCount() = fields.first().size()

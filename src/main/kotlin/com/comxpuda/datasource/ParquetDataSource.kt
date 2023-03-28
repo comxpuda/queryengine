@@ -9,8 +9,14 @@ import org.apache.arrow.vector.*
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.arrow.schema.SchemaConverter
+import org.apache.parquet.column.page.PageReadStore
+import org.apache.parquet.example.data.simple.SimpleGroup
+import org.apache.parquet.example.data.simple.convert.GroupRecordConverter
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.hadoop.util.HadoopInputFile
+import org.apache.parquet.io.ColumnIOFactory
+import org.apache.parquet.io.RecordReader
+import org.apache.parquet.schema.Type
 import java.util.logging.Logger
 
 class ParquetDataSource(private val filename: String) : DataSource {
@@ -38,12 +44,16 @@ class ParquetScan(filename: String, private val columns: List<String>) : AutoClo
     }
 
     override fun iterator(): Iterator<RecordBatch> {
-        return ParquetIterator(reader, columns)
+        return ParquetIterator(reader, columns, 1024)
     }
 
 }
 
-class ParquetIterator(private val reader: ParquetFileReader, private val projectedColumns: List<String>) :
+class ParquetIterator(
+    private val reader: ParquetFileReader,
+    private val projectedColumns: List<String>,
+    private val batchSize: Int
+) :
     Iterator<RecordBatch> {
 
     private val logger = Logger.getLogger(CsvDataSource::class.simpleName)
@@ -57,20 +67,45 @@ class ParquetIterator(private val reader: ParquetFileReader, private val project
 
     var batch: RecordBatch? = null
 
+    var pages: PageReadStore? = null
+
+    lateinit var recordReader: RecordReader<*>
+
+    var offset = 0
+
     override fun hasNext(): Boolean {
-        batch = nextBatch()
-        return batch != null
+        if (offset == 0) {
+            pages = reader.readNextRowGroup()
+            val pSchema = reader.footer.fileMetaData.schema
+            val columnIO = ColumnIOFactory().getColumnIO(pSchema)
+            recordReader = columnIO.getRecordReader(pages, GroupRecordConverter(schema))
+        } else {
+            return offset < pages!!.rowCount
+        }
+        return pages != null
     }
 
     override fun next(): RecordBatch {
-        val next = batch
+        val rows = pages!!.rowCount
+
+        var simpleGroups = mutableListOf<SimpleGroup>()
+        var count = batchSize
+        var start = offset
+        while (start++ < rows && count-- > 0) {
+            val simpleGroup = recordReader.read() as SimpleGroup
+            simpleGroups.add(simpleGroup)
+        }
+        //        reader.close();
+        val pSchema = reader.footer.fileMetaData.schema
+        val fields = pSchema.fields
+        val next = createBatch(Parquet(simpleGroups, fields))
         batch = null
+        offset += simpleGroups.size
         return next!!
     }
 
-    private fun nextBatch(): RecordBatch? {
-        val parquetData = ParquetReaderUtils.getParquetData(reader)
-        val rows = parquetData.getData()
+    private fun createBatch(parquetData: Parquet): RecordBatch? {
+        val rows = parquetData.data
         if (rows.isEmpty()) {
             return null
         }
@@ -143,3 +178,5 @@ class ParquetIterator(private val reader: ParquetFileReader, private val project
     }
 
 }
+
+data class Parquet(val data: List<SimpleGroup>, val schema: List<Type>)
